@@ -88,8 +88,15 @@ endif;
 
 function sa_ob_handler($buffer) {
 	$admin_url = get_settings('siteurl') . '/wp-admin';
+	$login_url = get_settings('siteurl') . '/wp-login.php';
+
 	$secure_admin_url = preg_replace('/^https?/', 'https', $admin_url);
-	return (str_replace($admin_url, $secure_admin_url, $buffer));
+	$secure_login_url = preg_replace('/^https?/', 'https', $login_url);
+
+	$replace_this = array($admin_url, $login_url);
+	$with_this = array($secure_admin_url, $secure_login_url);
+
+	return (str_replace($replace_this, $with_this, $buffer));
 }
 
 function sa_register_ob_handler() {
