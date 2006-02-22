@@ -130,12 +130,14 @@ endif;
 function sa_ob_handler($buffer) {
 	$admin_url = get_settings('siteurl') . '/wp-admin';
 	$login_url = get_settings('siteurl') . '/wp-login.php';
+	$comment_url = get_settings('siteurl') . '/wp-comments-post.php';
 
 	$secure_admin_url = preg_replace('/^https?/', 'https', $admin_url);
 	$secure_login_url = preg_replace('/^https?/', 'https', $login_url);
+	$secure_comment_url = preg_replace('/^https?/', 'https', $comment_url);
 
-	$replace_this = array($admin_url, $login_url);
-	$with_this = array($secure_admin_url, $secure_login_url);
+	$replace_this = array($admin_url, $login_url, $comment_url);
+	$with_this = array($secure_admin_url, $secure_login_url, $secure_comment_url);
 
 	return (str_replace($replace_this, $with_this, $buffer));
 }
