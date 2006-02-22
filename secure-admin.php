@@ -86,4 +86,19 @@ function wp_clearcookie() {
 }
 endif;
 
+function sa_ob_handler($buffer) {
+	$admin_url = get_settings('siteurl') . '/wp-admin';
+	$secure_admin_url = preg_replace('/^https?/', 'https', $admin_url);
+	return (str_replace($admin_url, $secure_admin_url, $buffer));
+}
+
+function sa_register_ob_handler() {
+	ob_start('sa_ob_handler');	
+}
+
+function sa_shutdown() {
+	ob_end_flush();	
+}
+add_action('init', 'sa_register_ob_handler');
+add_action('shutdown', 'sa_shutdown');
 ?>
