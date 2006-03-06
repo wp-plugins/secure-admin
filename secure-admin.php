@@ -153,10 +153,10 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 	$user_id = $user->ID;
 
 	// Set insecure "logged in" cookies.
-	setcookie('wordpressloggedin_' . COOKIEHASH, $user_id, $expire, $cookiepath, COOKIE_DOMAIN);
+	setcookie('wordpressloggedin_' . $cookiehash, $user_id, $expire, $cookiepath, COOKIE_DOMAIN);
 
 	if ( $cookiepath != $sitecookiepath )
-		setcookie('wordpressloggedin_' . COOKIEHASH, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN);
+		setcookie('wordpressloggedin_' . $cookiehash, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN);
 
 	// Set secure auth cookies.
 	setcookie(USER_COOKIE, $username, $expire, $cookiepath, COOKIE_DOMAIN, 1);
