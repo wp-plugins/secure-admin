@@ -62,11 +62,20 @@ endif;
 
 if ( !function_exists('auth_redirect') ) :
 function auth_redirect() {
-	
+
 	// Checks if a user is logged in, if not redirects them to the login page
-	if ( (!empty($_COOKIE[USER_COOKIE]) && 
-				!wp_login($_COOKIE[USER_COOKIE], $_COOKIE[PASS_COOKIE], true)) ||
-			 (empty($_COOKIE[USER_COOKIE])) ) {
+	$login = '';
+	if ( !empty($_COOKIE[USER_COOKIE]) && !empty($_COOKIE[PASS_COOKIE]) ) {
+		if ( function_exists('wp_decrypt') )
+			$user_id = wp_decrypt($_COOKIE[USER_COOKIE]);
+		else
+			$user_id = (int) $_COOKIE[USER_COOKIE];
+
+		if ( $user = get_userdata($user_id) )
+			$login = $user->user_login;
+	}
+	
+	if ( empty($login) || !wp_login($login, $_COOKIE[PASS_COOKIE], true) ) {
 		nocache_headers();
 
 		header('Location: ' . preg_replace('/^http/', 'https', get_settings('siteurl')) . '/wp-login.php?redirect_to=' . urlencode($_SERVER['REQUEST_URI']));
@@ -105,24 +114,46 @@ function get_currentuserinfo() {
 	if ( ! empty($current_user) )
 		return;
 
+	$cookie_bits = sa_get_cookie_path_hash();
+	extract($cookie_bits);
+	$cookiename = 'wordpressloggedin' . $cookiehash;
+
 	if ( ! is_admin() && ('wp-comments-post.php' != $pagenow) ) {
-		if ( ! empty($_COOKIE['wordpressloggedin_' . COOKIEHASH]) )
-			$user_id = $_COOKIE['wordpressloggedin_' . COOKIEHASH];
+		if ( ! empty($_COOKIE[$cookiename]) )
+			if ( function_exists('wp_decrypt') )
+				$user_id = wp_decrypt($_COOKIE[$cookiename]);
+			else
+				$user_id = $_COOKIE[$cookiename];
 			wp_set_current_user($user_id);
 			return;
 	}
 
 	if ( 'on' != $_SERVER['HTTPS'] )
 		return;
-	
-	if ( empty($_COOKIE[USER_COOKIE]) || empty($_COOKIE[PASS_COOKIE]) || 
-		!wp_login($_COOKIE[USER_COOKIE], $_COOKIE[PASS_COOKIE], true) ) {
+					
+	if ( empty($_COOKIE[USER_COOKIE]) || empty($_COOKIE[PASS_COOKIE]) ) {
 		wp_set_current_user(0);
 		return false;
 	}
 
-	$user_login = $_COOKIE[USER_COOKIE];
-	wp_set_current_user(0, $user_login);
+	if ( function_exists('wp_decrypt') )
+		$user_id = wp_decrypt($_COOKIE[USER_COOKIE]);
+	else
+		$user_id = (int) $_COOKIE[USER_COOKIE];
+
+	$user = get_userdata($user_id);
+
+	if ( ! $user ) {
+		wp_set_current_user(0);
+		return false;		
+	}
+	
+	if ( !wp_login($user->user_login, $_COOKIE[PASS_COOKIE], true) ) {
+		wp_set_current_user(0);
+		return false;
+	}
+
+	wp_set_current_user($user_id);
 }
 endif;
 
@@ -131,6 +162,72 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 	if ( !$already_md5 )
 		$password = md5( md5($password) ); // Double hash the password in the cookie.
 
+	$cookie_bits = sa_get_cookie_path_hash($home, $siteurl);
+	extract($cookie_bits);
+
+	if ( $remember )
+		$expire = time() + 31536000;
+	else
+		$expire = 0;
+
+	$user = new WP_User(0, $username);
+	$user_id = $user->ID;
+	if ( function_exists('wp_encrypt') )
+		$user_id = wp_encrypt($user_id);
+
+	// Set insecure "logged in" cookies.
+	setcookie('wordpressloggedin' . $cookiehash, $user_id, $expire, $cookiepath, COOKIE_DOMAIN);
+
+	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) )
+		setcookie('wordpressloggedin' . $cookiehash, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN);
+
+	// Set secure auth cookies.
+	setcookie(USER_COOKIE, $user_id, $expire, $cookiepath, COOKIE_DOMAIN, 1);
+	setcookie(PASS_COOKIE, $password, $expire, $cookiepath, COOKIE_DOMAIN, 1);
+
+	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) ) {
+		setcookie(USER_COOKIE, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
+		setcookie(PASS_COOKIE, $password, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
+	}
+}
+endif;
+
+if ( !function_exists('wp_clearcookie') ) :
+function wp_clearcookie() {
+	$cookie_bits = sa_get_cookie_path_hash();
+	extract($cookie_bits);
+	
+	setcookie(USER_COOKIE, ' ', time() - 31536000, COOKIEPATH, COOKIE_DOMAIN, 1);
+	setcookie(PASS_COOKIE, ' ', time() - 31536000, COOKIEPATH, COOKIE_DOMAIN, 1);
+	setcookie('wordpressloggedin' . $cookiehash, ' ', time() - 31536000, COOKIEPATH, COOKIE_DOMAIN);
+
+	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) ) {
+		setcookie(USER_COOKIE, ' ', time() - 31536000, SITECOOKIEPATH, COOKIE_DOMAIN, 1);
+		setcookie(PASS_COOKIE, ' ', time() - 31536000, SITECOOKIEPATH, COOKIE_DOMAIN, 1);
+		setcookie('wordpressloggedin' . $cookiehash, ' ', time() - 31536000, SITECOOKIEPATH, COOKIE_DOMAIN);
+	}
+}
+endif;
+
+if ( !function_exists('wp_get_cookie_login') ):
+function wp_get_cookie_login() {
+	if ( empty($_COOKIE[USER_COOKIE]) || empty($_COOKIE[PASS_COOKIE]) )
+		return false;
+
+	$login = '';
+	if ( function_exists('wp_decrypt') )
+		$user_id = wp_decrypt($_COOKIE[USER_COOKIE]);
+	else
+		$user_id = (int) $_COOKIE[USER_COOKIE];
+
+	if ( $user = get_userdata($user_id) )
+		$login = $user->user_login;
+			
+	return array('login' => $login,	'password' => $_COOKIE[PASS_COOKIE]);
+}
+endif;
+
+function sa_get_cookie_path_hash($home = '', $siteurl = '') {
 	if ( empty($home) )
 		$cookiepath = COOKIEPATH;
 	else
@@ -150,56 +247,11 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 		$cookiehash = md5($siteurl);
 	}
 
-	if ( $remember )
-		$expire = time() + 31536000;
-	else
-		$expire = 0;
-
-	$user = new WP_User(0, $username);
-	$user_id = $user->ID;
-
 	if ( !empty($cookiehash) )
 		$cookiehash = '_' . $cookiehash;
-
-	// Set insecure "logged in" cookies.
-	setcookie('wordpressloggedin' . $cookiehash, $user_id, $expire, $cookiepath, COOKIE_DOMAIN);
-
-	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) )
-		setcookie('wordpressloggedin' . $cookiehash, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN);
-
-	// Set secure auth cookies.
-	setcookie(USER_COOKIE, $username, $expire, $cookiepath, COOKIE_DOMAIN, 1);
-	setcookie(PASS_COOKIE, $password, $expire, $cookiepath, COOKIE_DOMAIN, 1);
-
-	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) ) {
-		setcookie(USER_COOKIE, $username, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
-		setcookie(PASS_COOKIE, $password, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
-	}
+		
+	return compact('cookiepath', 'sitecookiepath', 'cookiehash'); 
 }
-endif;
-
-if ( !function_exists('wp_clearcookie') ) :
-function wp_clearcookie() {
-	if ( defined('COOKIEHASH') )
-		$cookiehash = COOKIEHASH;
-	else
-		$cookiehash = '';
-
-	if ( !empty($cookiehash) )
-		$cookiehash = '_' . $cookiehash;
-	
-	setcookie(USER_COOKIE, ' ', time() - 31536000, COOKIEPATH, COOKIE_DOMAIN, 1);
-	setcookie(PASS_COOKIE, ' ', time() - 31536000, COOKIEPATH, COOKIE_DOMAIN, 1);
-	setcookie('wordpressloggedin' . $cookiehash, ' ', time() - 31536000, COOKIEPATH, COOKIE_DOMAIN);
-
-	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) ) {
-		setcookie(USER_COOKIE, ' ', time() - 31536000, SITECOOKIEPATH, COOKIE_DOMAIN, 1);
-		setcookie(PASS_COOKIE, ' ', time() - 31536000, SITECOOKIEPATH, COOKIE_DOMAIN, 1);
-		setcookie('wordpressloggedin' . $cookiehash, ' ', time() - 31536000, SITECOOKIEPATH, COOKIE_DOMAIN);
-	}
-
-}
-endif;
 
 function sa_ob_handler($buffer) {
 	$admin_url = get_settings('siteurl') . '/wp-admin';
