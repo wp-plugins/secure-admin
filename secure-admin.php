@@ -8,6 +8,58 @@ Version: 0.1
 Author URI: http://boren.nu/
 */ 
 
+// These functions are 2.1 and newer.  Add them for older releases.
+if ( !function_exists('setup_userdata') ):
+function setup_userdata($user_id = '') {
+	global $user_login, $userdata, $user_level, $user_ID, $user_email, $user_url, $user_pass_md5, $user_identity;
+
+	if ( '' == $user_id )
+		$user = wp_get_current_user();
+	else 
+		$user = new WP_User($user_id);
+
+	if ( 0 == $user->ID )
+		return;
+
+	$userdata = $user->data;
+	$user_login	= $user->user_login;
+	$user_level	= $user->user_level;
+	$user_ID	= $user->ID;
+	$user_email	= $user->user_email;
+	$user_url	= $user->user_url;
+	$user_pass_md5	= md5($user->user_pass);
+	$user_identity	= $user->display_name;
+}
+
+function set_current_user($id, $name = '') {
+	return wp_set_current_user($id, $name);
+}
+
+function wp_set_current_user($id, $name = '') {
+	global $current_user;
+
+	if ( isset($current_user) && ($id == $current_user->ID) )
+		return $current_user;
+
+	$current_user = new WP_User($id, $name);
+
+	setup_userdata($current_user->ID);
+
+	do_action('set_current_user');
+
+	return $current_user;
+}
+
+function wp_get_current_user() {
+	global $current_user;
+
+	get_currentuserinfo();
+
+	return $current_user;
+}
+
+endif;
+
 if ( !function_exists('auth_redirect') ) :
 function auth_redirect() {
 	
