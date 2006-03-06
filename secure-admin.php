@@ -67,12 +67,18 @@ function auth_redirect() {
 	$login = '';
 	if ( !empty($_COOKIE[USER_COOKIE]) && !empty($_COOKIE[PASS_COOKIE]) ) {
 		if ( function_exists('wp_decrypt') )
-			$user_id = wp_decrypt($_COOKIE[USER_COOKIE]);
+			$id_bits = wp_decrypt($_COOKIE[USER_COOKIE]);
 		else
-			$user_id = (int) $_COOKIE[USER_COOKIE];
+			$id_bits = (int) $_COOKIE[USER_COOKIE];
 
-		if ( $user = get_userdata($user_id) )
-			$login = $user->user_login;
+		$id_bits = explode('::', $id_bits);
+		if ( is_array($id_bits) ) {
+			$user_id = $id_bits[0];
+			$user_ip = $id_bits[1];
+			if ( ($user_ip == $_SERVER['REMOTE_ADDR']) &&
+				($user = get_userdata($user_id)) )
+				$login = $user->user_login;
+		}
 	}
 	
 	if ( empty($login) || !wp_login($login, $_COOKIE[PASS_COOKIE], true) ) {
@@ -137,11 +143,18 @@ function get_currentuserinfo() {
 	}
 
 	if ( function_exists('wp_decrypt') )
-		$user_id = wp_decrypt($_COOKIE[USER_COOKIE]);
+		$id_bits = wp_decrypt($_COOKIE[USER_COOKIE]);
 	else
-		$user_id = (int) $_COOKIE[USER_COOKIE];
+		$id_bits = (int) $_COOKIE[USER_COOKIE];
 
-	$user = get_userdata($user_id);
+	$user = '';
+	$id_bits = explode('::', $id_bits);
+	if ( is_array($id_bits) ) {
+		$user_id = $id_bits[0];
+		$user_ip = $id_bits[1];
+		if ( $user_ip == $_SERVER['REMOTE_ADDR'] )
+			$user = get_userdata($user_id);
+	}
 
 	if ( ! $user ) {
 		wp_set_current_user(0);
@@ -172,21 +185,22 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 
 	$user = new WP_User(0, $username);
 	$user_id = $user->ID;
+	$id_bits = $user_id . '::' . $_SERVER['REMOTE_ADDR'];
 	if ( function_exists('wp_encrypt') )
-		$user_id = wp_encrypt($user_id);
+		$id_bits = wp_encrypt($id_bits);
 
 	// Set insecure "logged in" cookies.
-	setcookie('wordpressloggedin' . $cookiehash, $user_id, $expire, $cookiepath, COOKIE_DOMAIN);
+	setcookie('wordpressloggedin' . $cookiehash, $id_bits, $expire, $cookiepath, COOKIE_DOMAIN);
 
 	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) )
-		setcookie('wordpressloggedin' . $cookiehash, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN);
+		setcookie('wordpressloggedin' . $cookiehash, $id_bits, $expire, $sitecookiepath, COOKIE_DOMAIN);
 
 	// Set secure auth cookies.
-	setcookie(USER_COOKIE, $user_id, $expire, $cookiepath, COOKIE_DOMAIN, 1);
+	setcookie(USER_COOKIE, $id_bits, $expire, $cookiepath, COOKIE_DOMAIN, 1);
 	setcookie(PASS_COOKIE, $password, $expire, $cookiepath, COOKIE_DOMAIN, 1);
 
 	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) ) {
-		setcookie(USER_COOKIE, $user_id, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
+		setcookie(USER_COOKIE, $id_bits, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
 		setcookie(PASS_COOKIE, $password, $expire, $sitecookiepath, COOKIE_DOMAIN, 1);
 	}
 }
@@ -216,10 +230,17 @@ function wp_get_cookie_login() {
 
 	$login = '';
 	if ( function_exists('wp_decrypt') )
-		$user_id = wp_decrypt($_COOKIE[USER_COOKIE]);
+		$id_bits = wp_decrypt($_COOKIE[USER_COOKIE]);
 	else
-		$user_id = (int) $_COOKIE[USER_COOKIE];
+		$id_bits = (int) $_COOKIE[USER_COOKIE];
 
+	$id_bits = explode('::', $id_bits);
+	if ( ! is_array($id_bits) )
+		return false;
+	$user_id = $id_bits[0];
+	$user_ip = $id_bits[1];
+	if ( $user_ip != $_SERVER['REMOTE_ADDR'] )
+		return false;
 	if ( $user = get_userdata($user_id) )
 		$login = $user->user_login;
 			
