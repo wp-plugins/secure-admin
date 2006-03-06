@@ -69,11 +69,11 @@ function auth_redirect() {
 		if ( function_exists('wp_decrypt') )
 			$id_bits = wp_decrypt($_COOKIE[USER_COOKIE]);
 		else
-			$id_bits = (int) $_COOKIE[USER_COOKIE];
+			$id_bits = $_COOKIE[USER_COOKIE];
 
 		$id_bits = explode('::', $id_bits);
 		if ( is_array($id_bits) ) {
-			$user_id = $id_bits[0];
+			$user_id = (int) $id_bits[0];
 			$user_ip = $id_bits[1];
 			if ( ($user_ip == $_SERVER['REMOTE_ADDR']) &&
 				($user = get_userdata($user_id)) )
@@ -125,13 +125,17 @@ function get_currentuserinfo() {
 	$cookiename = 'wordpressloggedin' . $cookiehash;
 
 	if ( ! is_admin() && ('wp-comments-post.php' != $pagenow) ) {
-		if ( ! empty($_COOKIE[$cookiename]) )
+		if ( ! empty($_COOKIE[$cookiename]) ) {
 			if ( function_exists('wp_decrypt') )
 				$user_id = wp_decrypt($_COOKIE[$cookiename]);
 			else
 				$user_id = $_COOKIE[$cookiename];
-			wp_set_current_user($user_id);
+			wp_set_current_user((int) $user_id);
 			return;
+		} else {
+			wp_set_current_user(0);
+			return false;			
+		}
 	}
 
 	if ( 'on' != $_SERVER['HTTPS'] )
@@ -150,7 +154,7 @@ function get_currentuserinfo() {
 	$user = '';
 	$id_bits = explode('::', $id_bits);
 	if ( is_array($id_bits) ) {
-		$user_id = $id_bits[0];
+		$user_id = (int) $id_bits[0];
 		$user_ip = $id_bits[1];
 		if ( $user_ip == $_SERVER['REMOTE_ADDR'] )
 			$user = get_userdata($user_id);
@@ -237,7 +241,7 @@ function wp_get_cookie_login() {
 	$id_bits = explode('::', $id_bits);
 	if ( ! is_array($id_bits) )
 		return false;
-	$user_id = $id_bits[0];
+	$user_id = (int) $id_bits[0];
 	$user_ip = $id_bits[1];
 	if ( $user_ip != $_SERVER['REMOTE_ADDR'] )
 		return false;
