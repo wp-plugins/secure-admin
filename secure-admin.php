@@ -74,8 +74,8 @@ function auth_redirect() {
 		$id_bits = explode('::', $id_bits);
 		if ( is_array($id_bits) ) {
 			$user_id = (int) $id_bits[0];
-			$user_ip = $id_bits[1];
-			if ( ($user_ip == $_SERVER['REMOTE_ADDR']) &&
+			$client_sig = $id_bits[1];
+			if ( ($client_sig == sa_get_client_signature()) &&
 				($user = get_userdata($user_id)) )
 				$login = $user->user_login;
 		}
@@ -127,15 +127,21 @@ function get_currentuserinfo() {
 	if ( ! is_admin() && ('wp-comments-post.php' != $pagenow) ) {
 		if ( ! empty($_COOKIE[$cookiename]) ) {
 			if ( function_exists('wp_decrypt') )
-				$user_id = wp_decrypt($_COOKIE[$cookiename]);
+				$id_bits = wp_decrypt($_COOKIE[$cookiename]);
 			else
-				$user_id = $_COOKIE[$cookiename];
-			wp_set_current_user((int) $user_id);
-			return;
-		} else {
-			wp_set_current_user(0);
-			return false;			
-		}
+				$id_bits = $_COOKIE[$cookiename];
+			$id_bits = explode('::', $id_bits);
+			if ( is_array($id_bits) ) {
+				$user_id = (int) $id_bits[0];
+				$client_sig = $id_bits[1];
+				if ( $client_sig == sa_get_client_signature() ) {
+					wp_set_current_user($user_id);
+					return;
+				}
+			}
+		} 
+		wp_set_current_user(0);
+		return false;
 	}
 
 	if ( 'on' != $_SERVER['HTTPS'] )
@@ -155,8 +161,8 @@ function get_currentuserinfo() {
 	$id_bits = explode('::', $id_bits);
 	if ( is_array($id_bits) ) {
 		$user_id = (int) $id_bits[0];
-		$user_ip = $id_bits[1];
-		if ( $user_ip == $_SERVER['REMOTE_ADDR'] )
+		$client_sig = $id_bits[1];
+		if ( $client_sig == sa_get_client_signature() )
 			$user = get_userdata($user_id);
 	}
 
@@ -189,7 +195,7 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 
 	$user = new WP_User(0, $username);
 	$user_id = $user->ID;
-	$id_bits = $user_id . '::' . $_SERVER['REMOTE_ADDR'];
+	$id_bits = $user_id . '::' . sa_get_client_signature();
 	if ( function_exists('wp_encrypt') )
 		$id_bits = wp_encrypt($id_bits);
 
@@ -242,8 +248,8 @@ function wp_get_cookie_login() {
 	if ( ! is_array($id_bits) )
 		return false;
 	$user_id = (int) $id_bits[0];
-	$user_ip = $id_bits[1];
-	if ( $user_ip != $_SERVER['REMOTE_ADDR'] )
+	$client_sig = $id_bits[1];
+	if ( $client_sig != sa_get_client_signature() )
 		return false;
 	if ( $user = get_userdata($user_id) )
 		$login = $user->user_login;
@@ -251,6 +257,23 @@ function wp_get_cookie_login() {
 	return array('login' => $login,	'password' => $_COOKIE[PASS_COOKIE]);
 }
 endif;
+
+function sa_get_client_signature() {
+	global $sa_client_sig;
+	
+	if ( isset($sa_client_sig) )
+		return $sa_client_sig;
+
+	$sa_client_sig = array();
+	$sa_client_sig[] = $_SERVER['HTTP_USER_AGENT'];
+	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT'];
+	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_CHARSET'];
+	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_ENCODING'];
+	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
+	
+	$sa_client_sig = md5(serialize($sa_client_sig));
+	return $sa_client_sig;
+}
 
 function sa_get_cookie_path_hash($home = '', $siteurl = '') {
 	if ( empty($home) )
