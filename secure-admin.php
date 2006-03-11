@@ -312,8 +312,28 @@ function sa_ob_handler($buffer) {
 
 	$replace_this = array($admin_url, $login_url, $comment_url);
 	$with_this = array($secure_admin_url, $secure_login_url, $secure_comment_url);
+	if ( is_admin() ) {
+		$includes_url = get_settings('siteurl') . '/wp-includes';
+		$secure_includes_url = preg_replace('/^https?/', 'https', $includes_url);
+		$replace_this[] = $includes_url;
+		$with_this[] = $secure_includes_url;
+	}
 
+	if ( is_preview() && ( 'on' == $_SERVER['HTTPS'] ) ) {
+		$site_url = get_settings('siteurl');
+		$secure_site_url = preg_replace('/^https?/', 'https', $site_url);
+		$replace_this[] = $site_url;
+		$with_this[] = $secure_site_url;
+	}
 	return (str_replace($replace_this, $with_this, $buffer));
+}
+
+// Use secure post links when linking to posts from a secure page.
+function sa_post_link($link) {
+
+	if ( 'on' == $_SERVER['HTTPS'] )
+		$link = preg_replace('/^https?/', 'https', $link);
+	return $link;
 }
 
 function sa_register_ob_handler() {
@@ -325,4 +345,5 @@ function sa_shutdown() {
 }
 add_action('init', 'sa_register_ob_handler');
 add_action('shutdown', 'sa_shutdown');
+add_filter('post_link', 'sa_post_link');
 ?>
