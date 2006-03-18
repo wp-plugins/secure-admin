@@ -266,10 +266,10 @@ function sa_get_client_signature() {
 
 	$sa_client_sig = array();
 	$sa_client_sig[] = $_SERVER['HTTP_USER_AGENT'];
-	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT'];
-	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_CHARSET'];
-	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_ENCODING'];
-	$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
+	//$sa_client_sig[] = $_SERVER['HTTP_ACCEPT'];
+	//$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_CHARSET'];
+	//$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_ENCODING'];
+	//$sa_client_sig[] = $_SERVER['HTTP_ACCEPT_LANGUAGE'];
 	
 	$sa_client_sig = md5(serialize($sa_client_sig));
 	return $sa_client_sig;
