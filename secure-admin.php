@@ -330,8 +330,9 @@ function sa_ob_handler($buffer) {
 
 // Use secure post links when linking to posts from a secure page.
 function sa_post_link($link) {
+	global $pagenow;
 
-	if ( 'on' == $_SERVER['HTTPS'] )
+	if ( ('on' == $_SERVER['HTTPS']) && ('wp-comments-post.php' != $pagenow) )
 		$link = preg_replace('/^https?/', 'https', $link);
 	return $link;
 }
@@ -343,7 +344,9 @@ function sa_register_ob_handler() {
 function sa_shutdown() {
 	ob_end_flush();	
 }
+
 add_action('init', 'sa_register_ob_handler');
 add_action('shutdown', 'sa_shutdown');
 add_filter('post_link', 'sa_post_link');
+add_filter('page_link', 'sa_post_link');
 ?>
