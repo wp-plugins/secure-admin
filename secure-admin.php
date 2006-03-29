@@ -110,6 +110,36 @@ function check_admin_referer() {
 }
 endif;
 
+if ( !function_exists('check_ajax_referer') ) :
+function check_ajax_referer() {
+	$cookie = explode(';', urldecode(empty($_POST['cookie']) ? $_GET['cookie'] : $_POST['cookie'])); // AJAX scripts must pass cookie=document.cookie
+	foreach ( $cookie as $tasty ) {
+		if ( false !== strpos($tasty, USER_COOKIE) )
+			$user = substr(strstr($tasty, '='), 1);
+		if ( false !== strpos($tasty, PASS_COOKIE) )
+			$pass = substr(strstr($tasty, '='), 1);
+	}
+	
+	if ( function_exists('wp_decrypt') )
+		$id_bits = wp_decrypt(urldecode($user));
+	else
+		$id_bits = $user;
+
+	$user = '';
+	$id_bits = explode('::', $id_bits);
+	if ( is_array($id_bits) ) {
+		$user_id = (int) $id_bits[0];
+		$client_sig = $id_bits[1];
+		if ( $client_sig == sa_get_client_signature() )
+			$user = get_userdata($user_id);
+	}
+
+	if ( !wp_login( $user->user_login, $pass, true ) )
+		die('-1');
+	do_action('check_ajax_referer');
+}
+endif;
+
 if ( !function_exists('get_currentuserinfo') ) :
 function get_currentuserinfo() {
 	global $current_user, $pagenow;
@@ -168,7 +198,7 @@ function get_currentuserinfo() {
 
 	if ( ! $user ) {
 		wp_set_current_user(0);
-		return false;		
+		return false;
 	}
 	
 	if ( !wp_login($user->user_login, $_COOKIE[PASS_COOKIE], true) ) {
