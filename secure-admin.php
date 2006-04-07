@@ -121,7 +121,7 @@ function check_ajax_referer() {
 	}
 	
 	if ( function_exists('wp_decrypt') )
-		$id_bits = wp_decrypt(urldecode($user));
+		$id_bits = wp_decrypt($user);
 	else
 		$id_bits = $user;
 
