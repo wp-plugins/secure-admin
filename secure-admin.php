@@ -52,7 +52,7 @@ endif;
 
 if ( !function_exists('check_admin_referer') ) :
 function check_admin_referer($action = -1) {
-	$adminurl = strtolower(get_settings('siteurl')).'/wp-admin';
+	$adminurl = strtolower(get_option('siteurl')).'/wp-admin';
 	$adminurl = preg_replace('/^http/', 'https', $adminurl);
 	$referer = strtolower(wp_get_referer());
 	if ( !wp_verify_nonce($_REQUEST['_wpnonce'], $action) &&
@@ -289,9 +289,9 @@ function sa_get_cookie_path_hash($home = '', $siteurl = '') {
 }
 
 function sa_ob_handler($buffer) {
-	$admin_url = get_settings('siteurl') . '/wp-admin';
-	$login_url = get_settings('siteurl') . '/wp-login.php';
-	$comment_url = get_settings('siteurl') . '/wp-comments-post.php';
+	$admin_url = get_option('siteurl') . '/wp-admin';
+	$login_url = get_option('siteurl') . '/wp-login.php';
+	$comment_url = get_option('siteurl') . '/wp-comments-post.php';
 	$secure_admin_url = preg_replace('/^https?/', 'https', $admin_url);
 	$secure_login_url = preg_replace('/^https?/', 'https', $login_url);
 	$secure_comment_url = preg_replace('/^https?/', 'https', $comment_url);
@@ -299,14 +299,14 @@ function sa_ob_handler($buffer) {
 	$replace_this = array($admin_url, $login_url, $comment_url);
 	$with_this = array($secure_admin_url, $secure_login_url, $secure_comment_url);
 	if ( is_admin() ) {
-		$includes_url = get_settings('siteurl') . '/wp-includes';
+		$includes_url = get_option('siteurl') . '/wp-includes';
 		$secure_includes_url = preg_replace('/^https?/', 'https', $includes_url);
 		$replace_this[] = $includes_url;
 		$with_this[] = $secure_includes_url;
 	}
 
 	if ( is_preview() && ( 'on' == $_SERVER['HTTPS'] ) ) {
-		$site_url = get_settings('siteurl');
+		$site_url = get_option('siteurl');
 		$secure_site_url = preg_replace('/^https?/', 'https', $site_url);
 		$replace_this[] = $site_url;
 		$with_this[] = $secure_site_url;
