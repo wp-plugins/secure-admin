@@ -4,65 +4,13 @@ Plugin Name: Secure Admin
 Plugin URI: http://wordpress.org/#
 Description: Access the admin backend over SSL.
 Author: Ryan Boren
-Version: 0.1
+Version: 0.2
 Author URI: http://boren.nu/
 */ 
 
-// These functions are 2.1 and newer.  Add them for older releases.
-if ( !function_exists('setup_userdata') ):
-function setup_userdata($user_id = '') {
-	global $user_login, $userdata, $user_level, $user_ID, $user_email, $user_url, $user_pass_md5, $user_identity;
-
-	if ( '' == $user_id )
-		$user = wp_get_current_user();
-	else 
-		$user = new WP_User($user_id);
-
-	if ( 0 == $user->ID )
-		return;
-
-	$userdata = $user->data;
-	$user_login	= $user->user_login;
-	$user_level	= $user->user_level;
-	$user_ID	= $user->ID;
-	$user_email	= $user->user_email;
-	$user_url	= $user->user_url;
-	$user_pass_md5	= md5($user->user_pass);
-	$user_identity	= $user->display_name;
-}
-
-function set_current_user($id, $name = '') {
-	return wp_set_current_user($id, $name);
-}
-
-function wp_set_current_user($id, $name = '') {
-	global $current_user;
-
-	if ( isset($current_user) && ($id == $current_user->ID) )
-		return $current_user;
-
-	$current_user = new WP_User($id, $name);
-
-	setup_userdata($current_user->ID);
-
-	do_action('set_current_user');
-
-	return $current_user;
-}
-
-function wp_get_current_user() {
-	global $current_user;
-
-	get_currentuserinfo();
-
-	return $current_user;
-}
-
-endif;
 
 if ( !function_exists('auth_redirect') ) :
 function auth_redirect() {
-
 	// Checks if a user is logged in, if not redirects them to the login page
 	$login = '';
 	if ( !empty($_COOKIE[USER_COOKIE]) && !empty($_COOKIE[PASS_COOKIE]) ) {
@@ -80,14 +28,8 @@ function auth_redirect() {
 				$login = $user->user_login;
 		}
 	}
-	
-	if ( empty($login) || !wp_login($login, $_COOKIE[PASS_COOKIE], true) ) {
-		nocache_headers();
 
-		header('Location: ' . preg_replace('/^http/', 'https', get_settings('siteurl')) . '/wp-login.php?redirect_to=' . urlencode($_SERVER['REQUEST_URI']));
-		//echo "Redirect to login";
-		exit();
-	} else if ( 'on' != $_SERVER['HTTPS'] ) {
+	if ( 'on' !== $_SERVER['HTTPS'] ) {
 		if ( false !== strpos($_SERVER['REQUEST_URI'], 'http') ) {
 			header('Location: ' . preg_replace('/^http/', 'https', $_SERVER['REQUEST_URI']));
 			exit();
@@ -96,31 +38,43 @@ function auth_redirect() {
 			exit();			
 		}
 	}
+
+	if ( empty($login) || !wp_login($login, $_COOKIE[PASS_COOKIE], true) ) {
+
+		nocache_headers();
+
+		wp_clearcookie();
+		header('Location: https://' . get_option('siteurl') . '/wp-login.php?action=auth&redirect_to=' . urlencode($_SERVER['REQUEST_URI']));
+		//echo "Redirect to login";
+		exit();
+	} 
 }
 endif;
 
 if ( !function_exists('check_admin_referer') ) :
-function check_admin_referer() {
+function check_admin_referer($action = -1) {
 	$adminurl = strtolower(get_settings('siteurl')).'/wp-admin';
 	$adminurl = preg_replace('/^http/', 'https', $adminurl);
-	$referer = strtolower($_SERVER['HTTP_REFERER']);
-	if (!strstr($referer, $adminurl))
-		die(__('Sorry, you need to <a href="http://codex.wordpress.org/Enable_Sending_Referrers">enable sending referrers</a> for this feature to work.'));
-	do_action('check_admin_referer');
+	$referer = strtolower(wp_get_referer());
+	if ( !wp_verify_nonce($_REQUEST['_wpnonce'], $action) &&
+		!(-1 == $action && strstr($referer, $adminurl)) ) {
+		wp_nonce_ays($action);
+		die();
+	}
+	do_action('check_admin_referer', $action);
 }
 endif;
 
 if ( !function_exists('check_ajax_referer') ) :
 function check_ajax_referer() {
-	$cookie = explode('; ', urldecode(empty($_POST['cookie']) ? 
-$_GET['cookie'] : $_POST['cookie'])); // AJAX scripts must pass cookie=document.cookie
+	$cookie = explode('; ', urldecode(empty($_POST['cookie']) ? $_GET['cookie'] : $_POST['cookie'])); // AJAX scripts must pass cookie=document.cookie
 	foreach ( $cookie as $tasty ) {
 		if ( false !== strpos($tasty, USER_COOKIE) )
 			$user = substr(strstr($tasty, '='), 1);
 		if ( false !== strpos($tasty, PASS_COOKIE) )
 			$pass = substr(strstr($tasty, '='), 1);
 	}
-	
+
 	if ( function_exists('wp_decrypt') )
 		$id_bits = wp_decrypt($user);
 	else
@@ -199,7 +153,7 @@ function get_currentuserinfo() {
 
 	if ( ! $user ) {
 		wp_set_current_user(0);
-		return false;
+		return false;		
 	}
 	
 	if ( !wp_login($user->user_login, $_COOKIE[PASS_COOKIE], true) ) {
@@ -235,6 +189,9 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 
 	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) )
 		setcookie('wordpressloggedin' . $cookiehash, $id_bits, $expire, $sitecookiepath, COOKIE_DOMAIN);
+
+	if( !preg_match( '/(^|\.)wordpress.com$/i', $_SERVER[ 'HTTP_HOST' ] ) )
+		return true;
 
 	// Set secure auth cookies.
 	setcookie(USER_COOKIE, $id_bits, $expire, $cookiepath, COOKIE_DOMAIN, 1);
@@ -284,7 +241,7 @@ function wp_get_cookie_login() {
 		return false;
 	if ( $user = get_userdata($user_id) )
 		$login = $user->user_login;
-			
+
 	return array('login' => $login,	'password' => $_COOKIE[PASS_COOKIE]);
 }
 endif;
@@ -336,7 +293,6 @@ function sa_ob_handler($buffer) {
 	$admin_url = get_settings('siteurl') . '/wp-admin';
 	$login_url = get_settings('siteurl') . '/wp-login.php';
 	$comment_url = get_settings('siteurl') . '/wp-comments-post.php';
-
 	$secure_admin_url = preg_replace('/^https?/', 'https', $admin_url);
 	$secure_login_url = preg_replace('/^https?/', 'https', $login_url);
 	$secure_comment_url = preg_replace('/^https?/', 'https', $comment_url);
@@ -356,6 +312,7 @@ function sa_ob_handler($buffer) {
 		$replace_this[] = $site_url;
 		$with_this[] = $secure_site_url;
 	}
+
 	return (str_replace($replace_this, $with_this, $buffer));
 }
 
@@ -369,15 +326,27 @@ function sa_post_link($link) {
 }
 
 function sa_register_ob_handler() {
+	global $pagenow;
+	// The following return is because our output buffer goes batshit crazy on activate and registration
+	//if ( strstr( $_SERVER['REQUEST_URI'], '/signup/' ) ||
+	//strstr( $_SERVER['REQUEST_URI'], '/activate/' ) )
+	if ( ('wp-signup.php' == $pagenow) || 
+	('wp-activate.php' == $pagenow) ||
+	strstr( $_SERVER['REQUEST_URI'], '/signup/' ) ||
+	strstr( $_SERVER['REQUEST_URI'], '/activate/' )
+	 )
+		return;
 	ob_start('sa_ob_handler');	
 }
 
-function sa_shutdown() {
-	ob_end_flush();	
+add_action('init', 'sa_register_ob_handler');
+add_filter('preview_post_link', 'sa_post_link');
+add_filter('preview_page_link', 'sa_post_link');
+
+function http() {
+	if ( 'on' == $_SERVER['HTTPS'] )
+		return 'https';
+	return 'http';
 }
 
-add_action('init', 'sa_register_ob_handler');
-add_action('shutdown', 'sa_shutdown');
-add_filter('post_link', 'sa_post_link');
-add_filter('page_link', 'sa_post_link');
 ?>
