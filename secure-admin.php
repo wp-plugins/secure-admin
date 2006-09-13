@@ -41,7 +41,6 @@ function auth_redirect() {
 
 	if ( empty($login) || !wp_login($login, $_COOKIE[PASS_COOKIE], true) ) {
 		nocache_headers();
-
 		wp_clearcookie();
 		$siteurl = preg_replace('/^https?/', 'https', get_option('siteurl'));
 		header('Location:' . $siteurl . '/wp-login.php?action=auth&redirect_to=' . urlencode($_SERVER['REQUEST_URI']));
@@ -188,9 +187,6 @@ function wp_setcookie($username, $password, $already_md5 = false, $home = '', $s
 
 	if ( !empty($sitecookiepath) && ($cookiepath != $sitecookiepath) )
 		setcookie('wordpressloggedin' . $cookiehash, $id_bits, $expire, $sitecookiepath, COOKIE_DOMAIN);
-
-	if( !preg_match( '/(^|\.)wordpress.com$/i', $_SERVER[ 'HTTP_HOST' ] ) )
-		return true;
 
 	// Set secure auth cookies.
 	setcookie(USER_COOKIE, $id_bits, $expire, $cookiepath, COOKIE_DOMAIN, 1);
