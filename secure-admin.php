@@ -40,12 +40,11 @@ function auth_redirect() {
 	}
 
 	if ( empty($login) || !wp_login($login, $_COOKIE[PASS_COOKIE], true) ) {
-
 		nocache_headers();
 
 		wp_clearcookie();
-		header('Location: https://' . get_option('siteurl') . '/wp-login.php?action=auth&redirect_to=' . urlencode($_SERVER['REQUEST_URI']));
-		//echo "Redirect to login";
+		$siteurl = preg_replace('/^https?/', 'https', get_option('siteurl'));
+		header('Location:' . $siteurl . '/wp-login.php?action=auth&redirect_to=' . urlencode($_SERVER['REQUEST_URI']));
 		exit();
 	} 
 }
