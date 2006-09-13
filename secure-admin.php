@@ -315,7 +315,6 @@ function sa_ob_handler($buffer) {
 	return (str_replace($replace_this, $with_this, $buffer));
 }
 
-// Use secure post links when linking to posts from a secure page.
 function sa_post_link($link) {
 	global $pagenow;
 
@@ -325,16 +324,6 @@ function sa_post_link($link) {
 }
 
 function sa_register_ob_handler() {
-	global $pagenow;
-	// The following return is because our output buffer goes batshit crazy on activate and registration
-	//if ( strstr( $_SERVER['REQUEST_URI'], '/signup/' ) ||
-	//strstr( $_SERVER['REQUEST_URI'], '/activate/' ) )
-	if ( ('wp-signup.php' == $pagenow) || 
-	('wp-activate.php' == $pagenow) ||
-	strstr( $_SERVER['REQUEST_URI'], '/signup/' ) ||
-	strstr( $_SERVER['REQUEST_URI'], '/activate/' )
-	 )
-		return;
 	ob_start('sa_ob_handler');	
 }
 
